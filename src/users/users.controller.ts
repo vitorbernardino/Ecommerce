@@ -1,10 +1,11 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, NotFoundException } from '@nestjs/common';
 import { CreateUserDto } from './commands/create-user/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { plainToClass } from 'class-transformer';
 import { GetUserQuery } from './queries/get-user/get-user.query';
 import { CreateUserCommand } from './commands/create-user/create-user.command';
+import { UpdateUserCommand } from './commands/update-user/update-user.command';
+import { UpdateUserDto } from './commands/update-user/update-user.dto';
 
 @Controller('users')
 export class UsersController {
@@ -37,8 +38,17 @@ export class UsersController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return null;
+  async update(
+    @Param('id') id: string, 
+    @Body() updateUserDto: UpdateUserDto
+  ) {
+    const command = plainToClass(UpdateUserCommand, {id: +id, ...updateUserDto});
+    const affectedRows = await this.commandBus.execute(command);
+    if(!affectedRows) {
+      throw new NotFoundException('User not found');
+    }
+    const query = plainToClass(GetUserQuery, {id: +id});
+    return this.queryBus.execute(query);
   }
 
   @Delete(':id')
